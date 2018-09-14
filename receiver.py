@@ -156,4 +156,5 @@ class Receiver():
 
                 except:
                     print("Mensagem recebida: {0}".format(data2))
-                    sock.sendto(b'ack', address)
+
+                sock.sendto(b'ack', address)
