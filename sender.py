@@ -97,13 +97,6 @@ class Sender():
             # Send data to the multicast group
             print('sending {0}'.format(message))
             sent = sock.sendto(str(message).encode('utf-8'), multicast_group)
-            try:
-                data, server = sock.recvfrom(16)
-                print('Recebido {!r} de {}'.format(data, server))
-            except socket.timeout:
-                print("Sem respostas - Timeout")
-            # break
-            # time.sleep(60)
         finally:
             print('Closing socket')
             sock.close()

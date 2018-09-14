@@ -20,7 +20,6 @@ def lockHandler(sock, address):
     print("Responendo dado do arquivo: {0}".format(file_data))
 
     sock.sendto(file_data.encode(), address)
-    no_ack = 1
     time.sleep(10)
     print("Removendo Lock de arquivo.")
     syscall("echo 0 > ./arquivos/lock")
@@ -78,7 +77,6 @@ class Receiver():
 
         # Receive/respond loop
         while True:
-            no_ack = 0
             data, address = sock.recvfrom(16384)
             print("\n\n-----RECEIVED-----")
             print('Datagram recebido: {0} bytes de {1}'.format(len(data), address))
@@ -87,13 +85,11 @@ class Receiver():
             print("  -From: {0}".format(address))
             if len(data) > 40:
                 data2 = data
-                no_ack = 1
 
                 try:
                     data = data.decode().replace("'", '"')
                     data = json.loads(data)
                     print(data)
-
                     # Key processing
                     if data["type"] == "key":
                         print("Checando se ja tenho esta chave...")
@@ -124,38 +120,31 @@ class Receiver():
                         else:
                             print("Recebida minha própria chave, ignorando...")
 
-                        # Message receiver
-                        if data["type"] == "encrypted-message":
-                            if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
-                                print("Datagram Received!")
-                                print("  -Mensagem enviada de {0}".format(data["sender_id"]))
-                                print("  -Mensagem enviada para {0}".format(data["destiny_id"]))
-                                print("  -Mensagem mensagem: {0}".format(data["message"]))
-                                # print("  -Mensagem criptografada: {0}".format(data["message_encrypted"]))
-                                # print("  -Mensagem descriptografada: {0}".format(crypto.decrypt_RSA.data["message_encrypted"]))
+                    # Message receiver
+                    if data["type"] == "encrypted-message":
+                        if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
+                            print("Datagram Received!")
+                            print("  -Mensagem enviada de {0}".format(data["sender_id"]))
+                            print("  -Mensagem enviada para {0}".format(data["destiny_id"]))
+                            print("  -Mensagem mensagem: {0}".format(data["message"]))
+                            # print("  -Mensagem criptografada: {0}".format(data["message_encrypted"]))
+                            # print("  -Mensagem descriptografada: {0}".format(crypto.decrypt_RSA.data["message_encrypted"]))
 
 
-                        # File Receiver ---- FALTA TODA IMPLEMENTAÇÃO DAS FILAS E CONTROLE DE ARQUIVOS
-                        if data["type"] == "file":
-                            if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
-                                print("Solicitação de arquivo recebida!")
-                                if syscall("cat ./arquivos/lock")[0] == '1':
-                                    print("Arquivo em lock, acesso negado")
-                                    sock.sendto(b'Acesso de arquivo negado para {0} - Arq. em Lock'.format(address),
-                                                address)
-
-                                    no_ack = 1
-                                else:
-                                    thread_lock = threading.Thread(target=lockHandler, args=(sock, address))
-                                    thread_lock.start()
-                                    no_ack = 1
+                    # File Receiver
+                    if data["type"] == "file":
+                        if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
+                            print("Solicitação de arquivo recebida!")
+                            if syscall("cat ./arquivos/lock")[0] == '1':
+                                print("Arquivo em lock, acesso negado")
+                                sock.sendto(b'Acesso de arquivo negado para {0} - Arq. em Lock'.format(address),
+                                            address)
                             else:
-                                print("mensagem n era pra mim")
-
-                    if no_ack == 0:
-                        sock.sendto(b'ack', address)
+                                thread_lock = threading.Thread(target=lockHandler, args=(sock, address))
+                                thread_lock.start()
+                        else:
+                            print("Mensagem nao era pra mim")
 
                 except:
                     print("Mensagem recebida: {0}".format(data2))
 
-                sock.sendto(b'ack', address)
