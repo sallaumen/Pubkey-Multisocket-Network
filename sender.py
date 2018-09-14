@@ -24,8 +24,8 @@ class Sender():
         # destiny_key = syscall("cat ./others_keys/{0}".format(destiny_key_address))[0]
         destiny_key_address = "{0}@{0}.pub".format(destiny)
 
-        message_cryp_dest = crypto.encrypt_RSA("./others_keys/{0}".format(destiny_key_address),
-                                               message)  # Mensagem criptografada na chave do destinatario
+        message_crypt_dest = crypto.encrypt_RSA("./others_keys/{0}".format(destiny_key_address),
+                                                message)  # Mensagem criptografada na chave do destinatario
 
         message_cryp_MINE = crypto.encrypt_RSA("./my_keys/id_rsa.pub",
                                                message)  # Mensagem critpografada na minha própria chave
@@ -34,7 +34,7 @@ class Sender():
                                                     message_cryp_MINE)  # Minha mensagem descriptografada
 
         print("\n\n--Demonstração do dado pós criptografia na chave pública do destinatario: {0}"
-              .format(message_cryp_dest))
+              .format(message_crypt_dest))
 
         # print("\n\n--Demosntração do dado pós criptografia na MINHA propria chave PÚBLICA: {0}".format(message_cryp_MINE))
         # print("\n\n--Demosntração do dado pós DEScriptografica na MINHA própria chave PRIVADA: {0}".format(message_decripted_MINE))
@@ -58,8 +58,9 @@ class Sender():
                 # JSON com o id da maquina que é seu MAC e sus public_key
                 print(message)
                 message = {'sender_id': personal_id, 'destiny_id': destiny, 'message': message,
-                           'message_encrypted': "AQUI VAI A variavel message_crip_dest",
+                           'message_encrypted': message_crypt_dest,
                            'time': datetime.now().strftime("%H:%M:%S"), 'type': 'encrypted-message'}
+
                 # Send data to the multicast group
                 print('sending {0}'.format(message))
                 sent = sock.sendto(str(message).encode('utf-8'), multicast_group)
