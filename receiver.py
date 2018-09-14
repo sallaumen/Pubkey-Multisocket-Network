@@ -1,6 +1,7 @@
 import json
 import socket
 import struct
+import threading
 import time
 from datetime import datetime
 from sender import Sender
@@ -10,6 +11,20 @@ import subprocess
 def syscall(p_command):
     v_subProcess = subprocess.run(p_command, shell=True, executable='/bin/bash', stdout=subprocess.PIPE)
     return v_subProcess.stdout.decode('utf-8').split('\n')[:-1]
+
+
+def lockHandler(sock, address):
+    print("Dando Lock em arquivo.")
+    syscall("echo 1 > ./arquivos/lock")  # Todo o lock de dados tem que ser refeito em objetos e nao em arquivos
+    file_data = syscall("cat ./arquivos/meu_arquivo")[0]
+    print("Responendo dado do arquivo: {0}".format(file_data))
+
+    sock.sendto(file_data.encode(), address)
+    no_ack = 1
+    time.sleep(10)
+    print("Removendo Lock de arquivo.")
+    syscall("echo 0 > ./arquivos/lock")
+    return
 
 
 class Receiver():
@@ -64,17 +79,20 @@ class Receiver():
         # Receive/respond loop
         while True:
             no_ack = 0
-            data, address = sock.recvfrom(10240)
+            data, address = sock.recvfrom(16384)
             print("\n\n-----RECEIVED-----")
             print('Datagram recebido: {0} bytes de {1}'.format(len(data), address))
             # print("  -Message: {0}".format(data))
             print("  -Lenght in bytes: {0}".format(len(data)))
             print("  -From: {0}".format(address))
             if len(data) > 40:
+                data2 = data
+                no_ack = 1
+
                 try:
                     data = data.decode().replace("'", '"')
-                    data2 = data
                     data = json.loads(data)
+                    print(data)
 
                     # Key processing
                     if data["type"] == "key":
@@ -116,24 +134,22 @@ class Receiver():
                                 # print("  -Mensagem criptografada: {0}".format(data["message_encrypted"]))
                                 # print("  -Mensagem descriptografada: {0}".format(crypto.decrypt_RSA.data["message_encrypted"]))
 
+
                         # File Receiver ---- FALTA TODA IMPLEMENTAÇÃO DAS FILAS E CONTROLE DE ARQUIVOS
                         if data["type"] == "file":
                             if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
                                 print("Solicitação de arquivo recebida!")
                                 if syscall("cat ./arquivos/lock")[0] == '1':
                                     print("Arquivo em lock, acesso negado")
-                                    sock.sendto(b'ACESSO NEGADO - ARQUIVO BLOQUEADO', address)
-                                    no_ack = 1
-                                print("Dando Lock em arquivo.")
-                                syscall(
-                                    "echo 1 > ./arquivos/lock")  # Todo o lock de dados tem que ser refeito em objetos e nao em arquivos
-                                file_data = syscall("cat ./arquivos/meu_arquivo")[0]
-                                print("Responendo dado do arquivo: {0}".format(file_data))
-                                sock.sendto(file_data.encode(), address)
-                                no_ack = 1
-                                time.sleep(4)
-                                print("Removendo Lock de arquivo.")
-                                syscall("echo 0 > ./arquivos/lock")
+                                    sock.sendto(b'Acesso de arquivo negado para {0} - Arq. em Lock'.format(address),
+                                                address)
+
+
+                                else:
+                                    thread_lock = threading.Thread(target=lockHandler, args=(sock, address))
+                                    thread_lock.start()
+                            else:
+                                print("mensagem n era pra mim")
 
                     if no_ack == 0:
                         sock.sendto(b'ack', address)

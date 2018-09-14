@@ -12,6 +12,7 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="multicast.Menu" />
+          <option value="bytes.format" />
         </list>
       </option>
     </inspection_tool>
