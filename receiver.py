@@ -62,7 +62,7 @@ class Receiver():
         # Receive/respond loop
         while True:
             no_ack = 0
-            data, address = sock.recvfrom(1024)
+            data, address = sock.recvfrom(10240)
             print("\n\n-----RECEIVED-----")
             print('Datagram recebido: {0} bytes de {1}'.format(len(data), address))
             # print("  -Message: {0}".format(data))
