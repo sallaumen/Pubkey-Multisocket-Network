@@ -6,9 +6,11 @@ from datetime import datetime
 from sender import Sender
 import subprocess
 
+
 def syscall(p_command):
     v_subProcess = subprocess.run(p_command, shell=True, executable='/bin/bash', stdout=subprocess.PIPE)
     return v_subProcess.stdout.decode('utf-8').split('\n')[:-1]
+
 
 class Receiver():
     @staticmethod
@@ -69,64 +71,73 @@ class Receiver():
             print("  -Lenght in bytes: {0}".format(len(data)))
             print("  -From: {0}".format(address))
             if len(data) > 40:
-                data = data.decode().replace("'", '"')
-                data = json.loads(data)
+                try:
+                    data = data.decode().replace("'", '"')
+                    data2 = data
+                    data = json.loads(data)
 
-                # Key processing ---- TERMINADO
-                if data["type"] == "key":
-                    print("Checando se ja tenho esta chave...")
-                    save = 0
-                    new_pubkey_file_name = "{0}@{0}.pub".format(data['id'])
-                    if (new_pubkey_file_name != "{0}@{0}.pub".format(personal_id)):
-                        try:
-                            flag = syscall("""ls -l ./others_keys | grep {0}""".format(new_pubkey_file_name))[0]
-                            print("a flag e: {0}".format(flag))
-                            if flag == '':
+                    # Key processing
+                    if data["type"] == "key":
+                        print("Checando se ja tenho esta chave...")
+                        save = 0
+                        new_pubkey_file_name = "{0}@{0}.pub".format(data['id'])
+                        if (new_pubkey_file_name != "{0}@{0}.pub".format(personal_id)):
+                            try:
+                                flag = syscall("""ls -l ./others_keys | grep {0}""".format(new_pubkey_file_name))[0]
+                                print("a flag e: {0}".format(flag))
+                                if flag == '':
+                                    print("Chave não encontrada.")
+                                    save = 1
+                                else:
+                                    save = 0
+                            except Exception as exc:  # Caso não tenha a chave,sempre vai cair nessa excessao
                                 print("Chave não encontrada.")
                                 save = 1
+
+                            if save == 1:
+                                print(
+                                    "Salvando em {0}@{1}.pub a chave publica recebida.".format(data['id'], data['id']))
+                                syscall(
+                                    "echo {0} > ./others_keys/{1}@{2}.pub".format(data['key'], data['id'], data['id']))
+                                print("Realizando broadcast de minha chave.")
+                                Sender.multicastSender(ip, porta, personal_id, key)
                             else:
-                                save = 0
-                        except Exception as exc:  # Caso não tenha a chave,sempre vai cair nessa excessao
-                            print("Chave não encontrada.")
-                            save = 1
-
-                        if save == 1:
-                            print("Salvando em {0}@{1}.pub a chave publica recebida.".format(data['id'], data['id']))
-                            syscall("echo {0} > ./others_keys/{1}@{2}.pub".format(data['key'], data['id'], data['id']))
-                            print("Realizando broadcast de minha chave.")
-                            Sender.multicastSender(ip, porta, personal_id, key)
+                                print("Chave pública ja existente. Ignorando.")
                         else:
-                            print("Chave pública ja existente. Ignorando.")
-                    else:
-                        print("Recebida minha própria chave, ignorando...")
+                            print("Recebida minha própria chave, ignorando...")
 
-                # Message receiver
-                if data["type"] == "encrypted-message":
-                    if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
-                        print("Datagram Received!")
-                        print("  -Mensagem enviada de {0}".format(data["sender_id"]))
-                        print("  -Mensagem enviada para {0}".format(data["destiny_id"]))
-                        print("  -Mensagem mensagem: {0}".format(data["message"]))
-                        # print("  -Mensagem criptografada: {0}".format(data["message_encrypted"]))
-                        # print("  -Mensagem descriptografada: {0}".format(crypto.decrypt_RSA.data["message_encrypted"]))
+                        # Message receiver
+                        if data["type"] == "encrypted-message":
+                            if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
+                                print("Datagram Received!")
+                                print("  -Mensagem enviada de {0}".format(data["sender_id"]))
+                                print("  -Mensagem enviada para {0}".format(data["destiny_id"]))
+                                print("  -Mensagem mensagem: {0}".format(data["message"]))
+                                # print("  -Mensagem criptografada: {0}".format(data["message_encrypted"]))
+                                # print("  -Mensagem descriptografada: {0}".format(crypto.decrypt_RSA.data["message_encrypted"]))
 
-                # File Receiver ---- FALTA TODA IMPLEMENTAÇÃO DAS FILAS E CONTROLE DE ARQUIVOS
-                if data["type"] == "file":
-                    if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
-                        print("Solicitação de arquivo recebida!")
-                        if syscall("cat ./arquivos/lock")[0] == '1':
-                            print("Arquivo em lock, acesso negado")
-                            sock.sendto(b'ACESSO NEGADO - ARQUIVO BLOQUEADO', address)
-                            no_ack = 1
-                        print("Dando Lock em arquivo.")
-                        syscall(
-                            "echo 1 > ./arquivos/lock")  # Todo o lock de dados tem que ser refeito em objetos e nao em arquivos
-                        file_data = syscall("cat ./arquivos/meu_arquivo")[0]
-                        print("Responendo dado do arquivo: {0}".format(file_data))
-                        sock.sendto(file_data.encode(), address)
-                        no_ack = 1
-                        time.sleep(4)
-                        print("Removendo Lock de arquivo.")
-                        syscall("echo 0 > ./arquivos/lock")
-            if no_ack == 0:
-                sock.sendto(b'ack', address)
+                        # File Receiver ---- FALTA TODA IMPLEMENTAÇÃO DAS FILAS E CONTROLE DE ARQUIVOS
+                        if data["type"] == "file":
+                            if data["destiny_id"] == personal_id:  # Checa se a mensagem é para mim
+                                print("Solicitação de arquivo recebida!")
+                                if syscall("cat ./arquivos/lock")[0] == '1':
+                                    print("Arquivo em lock, acesso negado")
+                                    sock.sendto(b'ACESSO NEGADO - ARQUIVO BLOQUEADO', address)
+                                    no_ack = 1
+                                print("Dando Lock em arquivo.")
+                                syscall(
+                                    "echo 1 > ./arquivos/lock")  # Todo o lock de dados tem que ser refeito em objetos e nao em arquivos
+                                file_data = syscall("cat ./arquivos/meu_arquivo")[0]
+                                print("Responendo dado do arquivo: {0}".format(file_data))
+                                sock.sendto(file_data.encode(), address)
+                                no_ack = 1
+                                time.sleep(4)
+                                print("Removendo Lock de arquivo.")
+                                syscall("echo 0 > ./arquivos/lock")
+
+                    if no_ack == 0:
+                        sock.sendto(b'ack', address)
+
+                except:
+                    print("Mensagem recebida: {0}".format(data2))
+                    sock.sendto(b'ack', address)
