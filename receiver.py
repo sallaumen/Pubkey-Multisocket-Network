@@ -3,7 +3,12 @@ import socket
 import struct
 import time
 from datetime import datetime
+from sender import Sender
+import subprocess
 
+def syscall(p_command):
+    v_subProcess = subprocess.run(p_command, shell=True, executable='/bin/bash', stdout=subprocess.PIPE)
+    return v_subProcess.stdout.decode('utf-8').split('\n')[:-1]
 
 class Receiver():
     @staticmethod
@@ -89,7 +94,7 @@ class Receiver():
                             print("Salvando em {0}@{1}.pub a chave publica recebida.".format(data['id'], data['id']))
                             syscall("echo {0} > ./others_keys/{1}@{2}.pub".format(data['key'], data['id'], data['id']))
                             print("Realizando broadcast de minha chave.")
-                            multicastSender()
+                            Sender.multicastSender()
                         else:
                             print("Chave pública ja existente. Ignorando.")
                     else:
