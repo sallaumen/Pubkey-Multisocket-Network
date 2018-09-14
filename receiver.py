@@ -144,10 +144,11 @@ class Receiver():
                                     sock.sendto(b'Acesso de arquivo negado para {0} - Arq. em Lock'.format(address),
                                                 address)
 
-
+                                    no_ack = 1
                                 else:
                                     thread_lock = threading.Thread(target=lockHandler, args=(sock, address))
                                     thread_lock.start()
+                                    no_ack = 1
                             else:
                                 print("mensagem n era pra mim")
 
