@@ -46,7 +46,7 @@ class Receiver():
             sock.close()
 
     @staticmethod
-    def multicastReceiver(ip, porta, personal_id):
+    def multicastReceiver(ip, porta, personal_id, key):
         multicast_group = ip
         server_address = ('', porta)
         # Create the socket
@@ -94,7 +94,7 @@ class Receiver():
                             print("Salvando em {0}@{1}.pub a chave publica recebida.".format(data['id'], data['id']))
                             syscall("echo {0} > ./others_keys/{1}@{2}.pub".format(data['key'], data['id'], data['id']))
                             print("Realizando broadcast de minha chave.")
-                            Sender.multicastSender()
+                            Sender.multicastSender(ip, porta, personal_id, key)
                         else:
                             print("Chave pública ja existente. Ignorando.")
                     else:
